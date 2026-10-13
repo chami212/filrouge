@@ -1,0 +1,11 @@
+modele,variable,coefficient
+meteo_et_temps,pression_hpa,-0.0654
+meteo_et_temps,humidite_pct,-0.1272
+meteo_et_temps,vent_ms,0.1144
+meteo_et_temps,mois_sin,-2.5951
+meteo_et_temps,mois_cos,-5.8953
+meteo_et_temps,heure_sin,-0.8337
+meteo_et_temps,heure_cos,-1.1846
+meteo_seule,pression_hpa,-0.2017
+meteo_seule,humidite_pct,-0.2653
+meteo_seule,vent_ms,-0.4897

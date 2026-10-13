@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.cache/
+.venv/
+venv/
+.idea/
+.vscode/
+tmp/
+Fil rouge *.pdf
+
