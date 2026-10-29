@@ -1,137 +1,150 @@
-# Analyse météorologique de Lille-Lesquin
+# Projet météo - Lille-Lesquin
 
-Projet Python d'analyse des observations SYNOP de Météo-France et de prédiction
-de la température par régression linéaire.
+Dans ce projet, j'ai travaillé sur les relevés météo de la station de
+Lille-Lesquin pour l'année 2023. L'objectif était de partir des données SYNOP
+de Météo-France, de les nettoyer, de les explorer, puis d'essayer de prédire la
+température avec une régression linéaire.
 
-Le dépôt couvre tout le parcours demandé : chargement, contrôles de qualité,
-nettoyage, agrégations, exploration graphique, structuration en fonctions,
-gestion d'erreurs, modélisation, comparaison et interprétation critique.
+Le programme principal se trouve dans `projet_meteo.py`. Il réalise toutes les
+étapes dans l'ordre : chargement du CSV, vérifications, nettoyage, création des
+graphiques, entraînement du modèle et export des résultats.
 
-## Résultats principaux
+## Lancer le projet
 
-- 2 864 observations de la station Lille-Lesquin (`07015`) entre le 1er janvier
-  et le 31 décembre 2023, au pas de trois heures. Les quelques créneaux absents
-  proviennent des archives sources.
-- Températures observées de **-5,0 °C à 33,9 °C**.
-- Mois le plus chaud en moyenne : **juin (20,41 °C)**.
-- Mois le plus pluvieux : **novembre (126,7 mm cumulés)**.
-- 80,5 % des mesures de précipitations sont nulles.
-- Parmi les variables météorologiques retenues, l'humidité présente la relation
-  linéaire la plus forte avec la température (`r = -0,61`).
+Le projet utilise Python 3.10 ou une version plus récente.
+
+Pour commencer, il faut créer un environnement virtuel et installer les
+dépendances :
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
+
+Ensuite, le projet se lance avec :
+
+```powershell
+python projet_meteo.py
+```
+
+Les principaux résultats s'affichent dans le terminal. Le script recrée aussi
+les graphiques dans `figures/` et les tableaux CSV dans `resultats/`.
+
+Pour vérifier que les fonctions principales marchent correctement :
+
+```powershell
+python -m pytest -q
+```
+
+## Données utilisées
+
+Le fichier analysé est `data/lille_lesquin_2023.csv`. Il contient 2 864
+observations de la station Lille-Lesquin, identifiée par le numéro OMM `07015`.
+Les mesures vont du 1er janvier au 31 décembre 2023, avec normalement une
+observation toutes les trois heures. Certains créneaux sont absents des
+archives, ce qui explique que le total soit légèrement inférieur aux 2 920
+observations théoriques.
+
+Les données viennent des
+[archives SYNOP de Météo-France](https://donneespubliques.meteofrance.fr/?fond=produit&id_produit=90)
+et sont diffusées sous Licence Ouverte 2.0.
+
+Le fichier fourni dans le dépôt est déjà prêt à être utilisé. Il peut aussi être
+recréé à partir des douze archives mensuelles avec :
+
+```powershell
+python scripts/preparer_donnees.py
+```
+
+## Nettoyage réalisé
+
+Avant de faire les graphiques, j'ai effectué plusieurs vérifications :
+
+- les valeurs `mq` sont reconnues comme des données manquantes ;
+- la date est convertie dans un vrai format date/heure ;
+- la température d'origine est conservée en kelvins et une nouvelle colonne
+  est créée en degrés Celsius ;
+- la pression est convertie de pascals en hectopascals ;
+- le mois et l'heure sont extraits de la date ;
+- la valeur `-0,1 mm` pour les précipitations est considérée comme une trace de
+  pluie et remplacée par zéro ;
+- les cinq précipitations réellement manquantes ne sont pas remplacées par
+  zéro, car une mesure absente ne signifie pas forcément qu'il n'a pas plu ;
+- des limites de plausibilité permettent de repérer une température, une
+  pression, une humidité ou un vent incohérents.
+
+## Ce que montrent les données
+
+Sur l'année, les températures vont de **-5,0 °C à 33,9 °C**. Le mois le plus
+chaud en moyenne est juin avec **20,41 °C**.
+
+Pour les précipitations, environ **80,5 %** des relevés sont nuls. Novembre est
+le mois le plus pluvieux de l'année dans ce jeu de données, avec un cumul de
+**126,7 mm**.
 
 ![Évolution de la température](figures/01_temperature.png)
 
-![Relations entre variables](figures/03_relations.png)
+J'ai également calculé les corrélations entre la température, la pression,
+l'humidité et le vent. L'humidité est la variable la plus liée à la température
+avec une corrélation de **-0,61**. Cela indique une relation inverse assez nette
+dans ces observations, mais pas forcément une relation de cause à effet.
 
-## Modélisation
+![Relations entre les variables](figures/03_relations.png)
 
-La cible est la température en degrés Celsius. Le modèle principal emploie :
+## Régression linéaire
+
+La variable à prédire est la température en degrés Celsius. Pour le modèle
+principal, j'ai utilisé :
 
 - la pression au niveau de la mer ;
 - l'humidité ;
 - la vitesse du vent ;
-- le mois et l'heure représentés par des couples sinus/cosinus, car ces
-  variables sont cycliques.
+- le mois et l'heure sous une forme cyclique avec des sinus et des cosinus.
 
-Le point de rosée n'est pas utilisé : il est dérivé de la température et de
-l'humidité et serait trop proche de la cible. Les données ne sont pas mélangées :
-les premiers 80 % entraînent le modèle et les derniers 20 % le testent.
+Cette représentation évite par exemple de considérer décembre et janvier comme
+deux mois très éloignés. Je n'ai pas utilisé le point de rosée, car il dépend
+déjà fortement de la température et aurait donné au modèle une information trop
+proche de la valeur à prédire.
+
+Comme les mesures forment une série temporelle, je n'ai pas mélangé les lignes.
+Les premiers 80 % servent à l'entraînement et les derniers 20 % au test. Le jeu
+de test correspond donc à la période du 21 octobre au 31 décembre.
 
 | Modèle | MAE test | RMSE test | R² test |
 |---|---:|---:|---:|
-| Météo + variables temporelles | 3,16 °C | 3,96 °C | -0,273 |
-| Météo seule | 3,66 °C | 4,85 °C | -0,906 |
-| Référence naïve (moyenne d'entraînement) | 5,12 °C | 6,15 °C | -2,067 |
+| Météo et variables temporelles | 3,16 °C | 3,96 °C | -0,273 |
+| Variables météo uniquement | 3,66 °C | 4,85 °C | -0,906 |
+| Prédiction naïve avec la moyenne | 5,12 °C | 6,15 °C | -2,067 |
 
-Les variables temporelles améliorent nettement les erreurs par rapport à la
-variante et à la référence naïve. Le R² de test demeure cependant négatif : la
-régression linéaire prédit mieux que la moyenne d'entraînement en MAE et RMSE,
-mais explique mal les variations de la période future du 21 octobre au 31
-décembre. Le graphique met notamment en évidence une surestimation lors du
-refroidissement de fin novembre et début décembre.
+Le modèle avec les variables temporelles fait mieux que la variante sans ces
+variables et que la prédiction naïve. En revanche, son R² de test reste négatif.
+Le modèle suit la tendance générale, mais il gère mal certains changements
+rapides, notamment le refroidissement de fin novembre et début décembre.
 
-Ce résultat est une limite importante du modèle, pas une erreur de calcul. Une
-relation linéaire ne capture ni les interactions météorologiques complexes, ni
-la dépendance entre observations successives. Par ailleurs, les coefficients
-bruts dépendent des unités et leurs amplitudes ne sont pas directement
-comparables.
+Ce résultat montre surtout les limites d'une régression linéaire pour ce type de
+données. La météo dépend de relations plus complexes et les observations prises
+toutes les trois heures ne sont pas indépendantes les unes des autres. Les
+coefficients dépendent aussi des unités utilisées, donc leur taille ne peut pas
+être comparée directement.
 
-![Prédictions et erreurs](figures/04_predictions_erreurs.png)
+![Températures prédites et erreurs](figures/04_predictions_erreurs.png)
 
-## Installation et exécution
-
-Python 3.10 ou une version plus récente est recommandé.
-
-```bash
-python -m venv .venv
-```
-
-Sous Windows :
-
-```powershell
-.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python projet_meteo.py
-```
-
-Sous Linux ou macOS :
-
-```bash
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python projet_meteo.py
-```
-
-L'exécution régénère automatiquement :
-
-- les quatre graphiques du dossier `figures/` ;
-- l'agrégation mensuelle, les corrélations, les métriques et les coefficients
-  dans `resultats/`.
-
-Pour lancer les tests :
-
-```bash
-python -m pytest -q
-```
-
-## Données et reproductibilité
-
-Le fichier prêt à l'emploi se trouve dans `data/lille_lesquin_2023.csv`. Il est
-issu des [archives SYNOP officielles de Météo-France](https://donneespubliques.meteofrance.fr/?fond=produit&id_produit=90),
-diffusées sous Licence Ouverte / Open Licence 2.0.
-
-Pour le reconstruire à partir des douze archives mensuelles :
-
-```bash
-python scripts/preparer_donnees.py
-```
-
-Le script télécharge les archives `synop.202301.csv.gz` à
-`synop.202312.csv.gz`, sélectionne la station `07015`, vérifie les doublons et
-écrit le CSV utilisé par l'analyse.
-
-## Choix de nettoyage
-
-- `mq` est lu comme une valeur manquante.
-- La température brute est conservée en kelvins et une nouvelle colonne en
-  degrés Celsius est créée.
-- La pression est convertie de pascals en hectopascals.
-- Les dates sont converties en UTC avec un format strict.
-- La valeur de précipitation `-0,1 mm`, qui code une trace, est ramenée à zéro.
-- Les cinq précipitations manquantes restent manquantes : les remplacer par
-  zéro confondrait absence de mesure et absence de pluie.
-- Des bornes de plausibilité contrôlent température, pression, humidité et vent.
-
-## Structure du dépôt
+## Organisation des fichiers
 
 ```text
-.
-├── data/                       # Données et provenance
-├── figures/                    # Graphiques générés
-├── resultats/                  # Tableaux CSV générés
-├── scripts/preparer_donnees.py # Reconstruction du jeu de données
-├── tests/                      # Tests automatisés
-├── projet_meteo.py             # Programme principal
-├── requirements.txt            # Dépendances Python
-└── README.md                    # Présentation et interprétation
+data/                        données utilisées et informations sur leur origine
+figures/                     graphiques produits par le programme
+resultats/                   agrégations, corrélations et résultats du modèle
+scripts/preparer_donnees.py  préparation du fichier Lille-Lesquin
+tests/                       tests des principales fonctions
+projet_meteo.py              programme principal
+requirements.txt             bibliothèques nécessaires
 ```
+
+## Assistance utilisée
+
+J'ai utilisé une assistance IA pour m'aider à structurer le projet, vérifier
+certaines étapes et améliorer la documentation. J'ai conservé dans le dépôt les
+choix de traitement et les résultats nécessaires pour pouvoir expliquer et
+reproduire le fonctionnement du programme.

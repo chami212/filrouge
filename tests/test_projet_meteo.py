@@ -13,7 +13,7 @@ from projet_meteo import (
 
 
 def jeu_brut_minimal() -> pd.DataFrame:
-    """Construit quelques observations valides au format SYNOP brut."""
+    #Construit quelques observations valides au format SYNOP brut
     return pd.DataFrame(
         {
             "numer_sta": pd.Series(["07015"] * 3, dtype="string"),

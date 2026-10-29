@@ -1,10 +1,3 @@
-"""Télécharge et extrait les observations SYNOP de Lille-Lesquin pour 2023.
-
-Le script utilise les douze archives mensuelles officielles de Météo-France.
-Il peut aussi travailler hors ligne avec ``--source-dir`` si les archives
-``synop.2023MM.csv.gz`` sont déjà présentes localement.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -34,7 +27,6 @@ COLONNES_CONSERVEES = [
 
 
 def lire_archive(source: Path | str) -> list[dict[str, str]]:
-    """Lit une archive locale ou distante et renvoie ses lignes SYNOP."""
     if isinstance(source, Path):
         flux = gzip.open(source, mode="rt", encoding="utf-8", newline="")
     else:
@@ -50,7 +42,7 @@ def extraire_station(
     station_id: str = STATION_ID,
     year: int = YEAR,
 ) -> list[dict[str, str]]:
-    """Assemble les douze mois et conserve uniquement une station."""
+    #Assemble les douze mois et conserve uniquement une station
     observations: list[dict[str, str]] = []
 
     for mois in range(1, 13):
@@ -79,7 +71,7 @@ def extraire_station(
 
 
 def ecrire_csv(observations: list[dict[str, str]], destination: Path) -> None:
-    """Écrit l'extrait avec le format brut SYNOP (séparateur point-virgule)."""
+    #Écrit l'extrait avec le format brut de SYNOP
     destination.parent.mkdir(parents=True, exist_ok=True)
     with destination.open("w", encoding="utf-8", newline="") as fichier:
         writer = csv.DictWriter(
@@ -93,7 +85,7 @@ def ecrire_csv(observations: list[dict[str, str]], destination: Path) -> None:
 
 
 def analyser_arguments() -> argparse.Namespace:
-    """Construit l'interface en ligne de commande."""
+    #Construit l'interface en ligne de commande
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--source-dir",
@@ -110,7 +102,7 @@ def analyser_arguments() -> argparse.Namespace:
 
 
 def main() -> None:
-    """Prépare le fichier de données utilisé par le projet."""
+    #Prépare le fichier de données utilisé par le projet
     args = analyser_arguments()
     observations = extraire_station(args.source_dir)
     ecrire_csv(observations, args.output)

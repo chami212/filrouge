@@ -1,18 +1,4 @@
-"""Analyse des observations météo de Lille-Lesquin et régression linéaire.
-
-Le programme charge les données SYNOP 2023, les nettoie, produit des
-agrégations et des graphiques d'exploration, puis entraîne une régression
-linéaire pour estimer la température en degrés Celsius.
-
-Choix de modélisation : le modèle principal utilise la pression, l'humidité,
-la vitesse du vent et des représentations cycliques du mois et de l'heure. Le
-point de rosée n'est volontairement pas utilisé : il est calculé à partir de
-la température et de l'humidité et apporterait une information trop proche de
-la cible. Le découpage entraînement/test est chronologique afin d'évaluer le
-modèle sur une période future plutôt que sur des observations mélangées.
-
-Exécution : ``python projet_meteo.py``
-"""
+#Analyse des observations météo de Lille-Lesquin et régression linéaire
 
 from __future__ import annotations
 
@@ -72,20 +58,17 @@ MOIS_FR = [
 
 
 def verifier_colonnes(df: pd.DataFrame, colonnes: set[str]) -> None:
-    """Lève une erreur claire si une colonne nécessaire est absente."""
+    #erreur si une colonne nécessaire est absente
     manquantes = sorted(colonnes - set(df.columns))
     if manquantes:
         raise ValueError(f"Colonnes obligatoires absentes : {', '.join(manquantes)}")
 
 
 def charger_donnees(chemin: Path) -> pd.DataFrame:
-    """Charge le CSV SYNOP et reconnaît ``mq`` comme valeur manquante.
-
-    Args:
-        chemin: chemin du fichier CSV séparé par des points-virgules.
-
-    Returns:
-        DataFrame brut, dont les identifiants et les dates restent du texte.
+    """
+    charge le CSV SYNOP
+    chemin du fichier CSV séparé par des points-virgules et retourne un
+    dataFrame brut dont les identifiants et les dates restent du texte
     """
     if not chemin.exists():
         raise FileNotFoundError(f"Fichier de données introuvable : {chemin}")
@@ -103,7 +86,7 @@ def charger_donnees(chemin: Path) -> pd.DataFrame:
 
 
 def rapport_valeurs_manquantes(df: pd.DataFrame) -> pd.DataFrame:
-    """Calcule le nombre et le pourcentage de valeurs manquantes par colonne."""
+    #calcule le nombre et le pourcentage de valeur manquantes par colonne
     rapport = pd.DataFrame(
         {
             "nombre": df.isna().sum(),
@@ -114,13 +97,6 @@ def rapport_valeurs_manquantes(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def nettoyer_donnees(df_brut: pd.DataFrame) -> pd.DataFrame:
-    """Filtre, convertit et enrichit les observations utiles.
-
-    La température cible, la pression, l'humidité et le vent sont complets dans
-    l'extrait retenu. Les rares précipitations manquantes restent manquantes :
-    les remplacer par zéro confondrait absence de mesure et absence de pluie.
-    La valeur -0,1 mm signifie une trace de pluie et est ramenée à zéro.
-    """
     verifier_colonnes(df_brut, COLONNES_REQUISES)
     df = df_brut.copy()
 
@@ -170,7 +146,7 @@ def nettoyer_donnees(df_brut: pd.DataFrame) -> pd.DataFrame:
 
 
 def calculer_agregation_mensuelle(df: pd.DataFrame) -> pd.DataFrame:
-    """Calcule moyenne, minimum et maximum mensuels de la température."""
+    #calculs moyenne minimum et maximum mensuels de la temp
     agregation = (
         df.groupby("mois", observed=True)["temperature_c"]
         .agg(moyenne="mean", minimum="min", maximum="max", observations="count")
@@ -181,20 +157,19 @@ def calculer_agregation_mensuelle(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def calculer_correlations(df: pd.DataFrame) -> pd.DataFrame:
-    """Retourne la matrice de corrélation des variables météorologiques."""
+    #renvoi la matrice de correlation des variables meteorologiques
     colonnes = ["temperature_c", "pression_hpa", "humidite_pct", "vent_ms"]
     return df[colonnes].corr()
 
 
 def enregistrer_figure(figure: plt.Figure, chemin: Path) -> None:
-    """Enregistre proprement une figure et libère sa mémoire."""
     chemin.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(chemin, dpi=160, bbox_inches="tight")
     plt.close(figure)
 
 
 def tracer_temperature(df: pd.DataFrame, dossier: Path) -> None:
-    """Trace les observations et la synthèse mensuelle de température."""
+    #trace les observations et la synthèse mensuelle de température
     mensuelle = df.set_index("date")["temperature_c"].resample("MS").mean()
     fig, axes = plt.subplots(2, 1, figsize=(12, 8), constrained_layout=True)
 
@@ -218,7 +193,6 @@ def tracer_temperature(df: pd.DataFrame, dossier: Path) -> None:
 
 
 def tracer_precipitations(df: pd.DataFrame, dossier: Path) -> None:
-    """Visualise la distribution et les cumuls mensuels de précipitations."""
     pluie = df["precip_3h_mm"].dropna()
     pluie_positive = pluie.loc[pluie > 0]
     cumuls = df.groupby("mois", observed=True)["precip_3h_mm"].sum(min_count=1)
@@ -329,7 +303,6 @@ def scinder_chronologiquement(
 
 
 def calculer_metriques(y_reel: pd.Series, y_predit: np.ndarray) -> dict[str, float]:
-    """Calcule MAE, RMSE et R² pour des températures."""
     return {
         "MAE_C": float(mean_absolute_error(y_reel, y_predit)),
         "RMSE_C": float(root_mean_squared_error(y_reel, y_predit)),
@@ -343,7 +316,7 @@ def entrainer_modele(
     nom: str,
     proportion_test: float = 0.20,
 ) -> dict[str, object]:
-    """Entraîne une régression linéaire et évalue train, test et référence."""
+    #entrainement pour une régression linéaire et evalue train test et ref
     X, y, dates, lignes_perdues = preparer_variables(df, variables)
     X_train, X_test, y_train, y_test, dates_train, dates_test = (
         scinder_chronologiquement(X, y, dates, proportion_test)
@@ -374,7 +347,6 @@ def entrainer_modele(
 
 
 def tracer_predictions(resultat: dict[str, object], dossier: Path) -> None:
-    """Montre les prédictions chronologiques et la répartition des erreurs."""
     dates = resultat["dates_test"]
     y_test = resultat["y_test"]
     predictions = resultat["pred_test"]
@@ -410,7 +382,6 @@ def exporter_resultats(
     resultats_modeles: list[dict[str, object]],
     dossier: Path,
 ) -> None:
-    """Exporte les tableaux utiles à la vérification du projet."""
     dossier.mkdir(parents=True, exist_ok=True)
     agregation.round(2).to_csv(dossier / "agregation_mensuelle.csv")
     correlations.round(3).to_csv(dossier / "correlations.csv")
@@ -454,7 +425,6 @@ def afficher_synthese(
     principal: dict[str, object],
     variante: dict[str, object],
 ) -> None:
-    """Affiche les contrôles et l'interprétation essentielle dans le terminal."""
     print(f"Observations chargées : {len(df_brut)}")
     print(f"Période : {df['date'].min()} -> {df['date'].max()}")
     print(
